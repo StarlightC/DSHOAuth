@@ -1,6 +1,6 @@
 {
   "name": "dsh-oauth",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OAuth sign-in UI for the official DeepSeek Harness OpenAI Codex and GitHub Copilot providers",
   "license": "MIT",
   "type": "module",
