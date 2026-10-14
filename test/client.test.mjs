@@ -4,6 +4,14 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import vm from 'node:vm'
 
+function localeFixture() {
+  const dictionaries = {}
+  return {
+    register(_namespace, language, value) { dictionaries[language] = value; return () => {} },
+    bind() { return key => dictionaries.en[key] },
+  }
+}
+
 test('the browser bundle registers one official provider-card extension', async () => {
   const source = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
   let definition
@@ -16,33 +24,33 @@ test('the browser bundle registers one official provider-card extension', async 
     inject(name, register) { assert.equal(name, 'settings.models.provider-card'); register() },
     register(options, component) { slot = { options, component }; return () => {} },
   }
-  client.apply({ get(name) { return name === 'slots' ? slots : { rpc: {} } } })
+  client.apply({ locale: localeFixture(), effect(fn) { fn() }, get(name) { return name === 'slots' ? slots : { rpc: {} } } })
   assert.equal(slot.options.key, 'llm-pi-ai')
   assert.equal(slot.options.name, 'settings.models.provider-card')
   assert.equal(typeof slot.component, 'function')
 })
 
-async function clientFixture(rpc) {
+async function clientFixture(rpc, navigator = {}) {
   const React = await import('react')
   const { create, act } = await import('react-test-renderer')
-  let definition, component
+  let definition, component, injected
   const timers = new Map()
   let serial = 0
   const source = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
   vm.runInNewContext(source, {
     window: { __ModuleLoader__: { load(value) { definition = value } } },
-    AbortController,
+    AbortController, navigator,
     setTimeout(fn) { const id = ++serial; timers.set(id, fn); return id },
     clearTimeout(id) { timers.delete(id) },
   })
-  definition.factory(createRequire(import.meta.url)).apply({ get(name) {
+  definition.factory(createRequire(import.meta.url)).apply({ locale: localeFixture(), effect(fn) { fn() }, get(name) {
     return name === 'slots' ? {
       inject(_name, register) { register() },
-      register(_options, value) { component = value },
+      register(options, value) { component = value; injected = options.inject() },
     } : { rpc }
   } })
   let root
-  const element = provider => React.createElement(component, { provider: { provider }, rpc })
+  const element = provider => React.createElement(component, { provider: { provider }, ...injected })
   await act(async () => { root = create(element('github-copilot')) })
   return { root, act, element, timers }
 }
@@ -85,13 +93,48 @@ test('a late poll cannot replace post-cancel state, and changing provider clears
   try {
     await act(async () => { root.root.findByType('input').props.onChange({ target: { value: 'old text' } }) })
     await act(async () => { const [id, fn] = timers.entries().next().value; timers.delete(id); fn() })
-    const cancel = root.root.findAllByType('button').find(button => button.children.includes('取消 / Cancel'))
+    const cancel = root.root.findAllByType('button').find(button => button.children.includes('Cancel'))
     await act(async () => cancel.props.onClick())
     assert.equal(pollSignal.aborted, true)
     await act(async () => resolveOld({ ok: true, value: waiting }))
     assert.equal(root.root.findAllByType('input').length, 0)
     await act(async () => root.update(element('openai-codex')))
     assert.equal(root.root.findAllByType('input').length, 0)
-    assert.ok(root.root.findAllByType('button').some(button => button.children.includes('登录 / Sign in')))
+    assert.ok(root.root.findAllByType('button').some(button => button.children.includes('Sign in')))
+  } finally { await act(async () => root.unmount()) }
+})
+
+
+test('copy failure stays in the authorization panel without starting a credential mutation', async () => {
+  const calls = []
+  const state = { configured: false, writable: true, attempt: {
+    id: 'copy-test', phase: 'waiting', notice: { message: 'Authorize in browser', code: 'ABCD-EFGH' },
+  } }
+  const { root, act } = await clientFixture({ async call(_channel, method) {
+    calls.push(method)
+    return { ok: true, value: state }
+  } }, { clipboard: { async writeText() { throw new Error('Clipboard unavailable') } } })
+  try {
+    await act(async () => root.root.findAllByType('button').find(button => button.children.includes('Copy')).props.onClick())
+    assert.match(root.root.findByProps({ role: 'alert' }).children.join(''), /copy it manually/)
+    assert.equal(root.root.findByType('code').children.join(''), 'ABCD-EFGH')
+    assert.ok(calls.every(method => method.endsWith('.status')))
+  } finally { await act(async () => root.unmount()) }
+})
+
+test('finalizing hides stale authorization controls and read-only credentials have no actions', async () => {
+  let state = { configured: true, writable: true, attempt: {
+    id: 'final', phase: 'finalizing', notice: { message: 'Old notice', code: 'ABCD-EFGH' },
+    prompt: { id: 'old', type: 'text', message: 'Old prompt' },
+  } }
+  const { root, act, element } = await clientFixture({ async call() { return { ok: true, value: state } } })
+  try {
+    assert.match(root.root.findByProps({ role: 'status' }).findAllByType('span').at(-1).children.join(''), /Finishing sign-in/)
+    assert.equal(root.root.findAllByType('button').length, 0)
+    assert.equal(root.root.findAllByType('input').length, 0)
+    state = { configured: true, writable: false }
+    await act(async () => root.update(element('openai-codex')))
+    assert.equal(root.root.findAllByType('button').length, 0)
+    assert.ok(root.root.findAllByType('p').some(p => p.children.includes('This credential is read-only.')))
   } finally { await act(async () => root.unmount()) }
 })
