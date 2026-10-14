@@ -32,14 +32,11 @@
   },
   "scripts": {
     "build": "tsdown",
-    "prepare": "tsdown",
     "typecheck": "tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs"
   },
-  "dependencies": {
-    "@earendil-works/pi-ai": "1.0.2"
-  },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "1.0.2",
     "@deepseek-ai/cordis": "~4.0.5-alpha.1",
     "@deepseek-ai/dsh-api-remotes": ">=0.2.1-alpha.2 <0.3",
     "@deepseek-ai/dsh-atomic-write": ">=0.2.1-alpha.2 <0.3",
@@ -51,6 +48,7 @@
     "@deepseek-ai/dsh-llm-pi-ai": ">=0.2.1-alpha.2 <0.3"
   },
   "devDependencies": {
+    "@earendil-works/pi-ai": "1.0.2",
     "@deepseek-ai/cordis": "4.0.5-alpha.1",
     "@deepseek-ai/dsh-api-remotes": "0.2.1-alpha.2",
     "@deepseek-ai/dsh-atomic-write": "0.2.1-alpha.2",

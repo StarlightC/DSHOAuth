@@ -7,44 +7,49 @@
 ## 使用要求
 
 - DeepSeek Harness 0.2.1 系列及兼容版本，不支持旧版接口。
-- 已安装 `dsh` 命令，并初始化要使用的 Desktop 或 Web profile。
+- 已安装并启动过 DeepSeek Harness Desktop，或已配置 Web 服务。
 - 可用于对应服务的 OpenAI 或 GitHub 账号。
 
 ## 安装
 
-安装到已初始化的 Desktop profile，安装前须完全退出 Desktop。可选择 GitHub 源码安装或本地安装包。
+插件提供预构建版本，无需在本机编译或为 DSHOAuth 配置 `allowBuilds`。
 
-### 从 GitHub 安装
+### 在 Desktop 界面安装
 
-执行以下命令：
+首个正式版本发布后：
+
+1. 打开 Desktop 的插件管理界面，点击 **添加插件**，选择 **安装第三方插件**。
+2. 在 **包名或地址** 输入框中粘贴下方链接，点击 **安装**，安装最新正式版。
+3. 按界面提示完成安装；如果提示需要重启，请重启 Desktop。
+
+```text
+https://github.com/StarlightC/DSHOAuth
+```
+
+如需指定版本，将下面的 `<tag>` 替换为已发布的版本 tag（例如 `v0.1.0`）：
+
+```text
+https://github.com/StarlightC/DSHOAuth/releases/download/<tag>/dsh-oauth.tgz
+```
+
+仓库地址用于安装最新正式版；指定版本时使用对应 Release 的安装包直链。Web 的插件管理界面也可使用相同地址。
+
+### 通过命令行安装
+
+如果使用 `dsh` 命令，安装到 Desktop profile 前请完全退出 Desktop：
 
 ```sh
 dsh plugin --profile desktop add github:StarlightC/DSHOAuth
 ```
 
-从 GitHub 安装时需要在本机自动构建插件。如果提示构建被阻止，请按报错中的确切包键，在目标 profile 的 `pnpm-workspace.yaml` 中合并以下配置，保留原有设置：
-
-```yaml
-allowBuilds:
-  dsh-oauth: true
-```
-
-随后重新执行安装命令。该配置允许安装时执行插件构建代码。
-
-如需固定版本，将下面的 `<commit-sha>` 替换为仓库中对应提交的完整 SHA：
-
-```sh
-dsh plugin --profile desktop add 'github:StarlightC/DSHOAuth#<commit-sha>'
-```
-
-Web 使用同一方式安装，将 `--profile desktop` 改为 `--profile web`；构建授权也应配置在对应的 Web profile 中。
+安装到 Web profile 时，将 `--profile desktop` 改为 `--profile web`。
 
 ### 从本地安装包安装
 
-如果已有插件的 `.tgz` 安装包，也可以直接安装。将路径替换为实际文件位置：
+也可以从对应 GitHub Release 的 Assets 中下载 `dsh-oauth.tgz`，在插件管理界面的安装地址输入框中填写该文件的绝对路径，或通过命令安装：
 
 ```sh
-dsh plugin --profile desktop add ./dsh-oauth-0.1.0.tgz
+dsh plugin --profile desktop add ./dsh-oauth.tgz
 ```
 
 ## 登录与使用
